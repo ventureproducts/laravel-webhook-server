@@ -10,15 +10,15 @@ use Spatie\WebhookServer\Signer\Signer;
 
 class WebhookCall
 {
-    protected CallWebhookJob $callWebhookJob;
+    protected $callWebhookJob;
 
-    protected string $secret;
+    protected $secret;
 
-    protected Signer $signer;
+    protected $signer;
 
-    protected array $headers = [];
+    protected $headers = [];
 
-    private array $payload = [];
+    private $payload = [];
 
     public static function create(): self
     {

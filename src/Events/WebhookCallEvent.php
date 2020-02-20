@@ -7,34 +7,34 @@ use GuzzleHttp\Psr7\Response;
 abstract class WebhookCallEvent
 {
     /** @var string */
-    public string $httpVerb;
+    public $httpVerb;
 
     /** @var string */
-    public string $webhookUrl;
+    public $webhookUrl;
 
     /** @var array */
-    public array $payload;
+    public $payload;
 
     /** @var array */
-    public array $headers;
+    public $headers;
 
     /** @var array */
-    public array $meta;
+    public $meta;
 
     /** @var array */
-    public array $tags;
+    public $tags;
 
     /** @var int */
-    public int $attempt;
+    public $attempt;
 
     /** @var \GuzzleHttp\Psr7\Response|null */
-    public ?Response $response;
+    public $response;
 
     /** @var string */
-    public ?string $errorType;
+    public $errorType;
 
     /** @var string */
-    public ?string $errorMessage;
+    public $errorMessage;
 
     public function __construct(
         string $httpVerb,
