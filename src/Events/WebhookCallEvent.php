@@ -6,35 +6,27 @@ use GuzzleHttp\Psr7\Response;
 
 abstract class WebhookCallEvent
 {
-    /** @var string */
     public string $httpVerb;
 
-    /** @var string */
     public string $webhookUrl;
 
-    /** @var array */
     public array $payload;
 
-    /** @var array */
     public array $headers;
 
-    /** @var array */
     public array $meta;
 
-    /** @var array */
     public array $tags;
 
-    /** @var int */
     public int $attempt;
 
-    /** @var \GuzzleHttp\Psr7\Response|null */
     public ?Response $response;
 
-    /** @var string */
     public ?string $errorType;
 
-    /** @var string */
     public ?string $errorMessage;
+
+    public string $uuid;
 
     public function __construct(
         string $httpVerb,
@@ -46,7 +38,8 @@ abstract class WebhookCallEvent
         int $attempt,
         ?Response $response,
         ?string $errorType,
-        ?string $errorMessage
+        ?string $errorMessage,
+        string $uuid
     ) {
         $this->httpVerb = $httpVerb;
         $this->webhookUrl = $webhookUrl;
@@ -58,5 +51,6 @@ abstract class WebhookCallEvent
         $this->response = $response;
         $this->errorType = $errorType;
         $this->errorMessage = $errorMessage;
+        $this->uuid = $uuid;
     }
 }

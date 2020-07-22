@@ -2,6 +2,7 @@
 
 namespace Spatie\WebhookServer;
 
+use Illuminate\Support\Str;
 use Spatie\WebhookServer\BackoffStrategy\BackoffStrategy;
 use Spatie\WebhookServer\Exceptions\CouldNotCallWebhook;
 use Spatie\WebhookServer\Exceptions\InvalidBackoffStrategy;
@@ -12,6 +13,8 @@ class WebhookCall
 {
     protected CallWebhookJob $callWebhookJob;
 
+    protected string $uuid = '';
+
     protected string $secret;
 
     protected Signer $signer;
@@ -20,11 +23,14 @@ class WebhookCall
 
     private array $payload = [];
 
+    private $signWebhook = true;
+
     public static function create(): self
     {
         $config = config('webhook-server');
 
         return (new static())
+            ->uuid(Str::uuid())
             ->onQueue($config['queue'])
             ->useHttpVerb($config['http_verb'])
             ->maximumTries($config['tries'])
@@ -41,14 +47,14 @@ class WebhookCall
         $this->callWebhookJob = app(CallWebhookJob::class);
     }
 
-    public function url(string $url)
+    public function url(string $url): self
     {
         $this->callWebhookJob->webhookUrl = $url;
 
         return $this;
     }
 
-    public function payload(array $payload)
+    public function payload(array $payload): self
     {
         $this->payload = $payload;
 
@@ -57,35 +63,44 @@ class WebhookCall
         return $this;
     }
 
-    public function onQueue(string $queue)
+    public function uuid(string $uuid): self
+    {
+        $this->uuid = $uuid;
+
+        $this->callWebhookJob->uuid = $uuid;
+
+        return $this;
+    }
+
+    public function onQueue(string $queue): self
     {
         $this->callWebhookJob->queue = $queue;
 
         return $this;
     }
 
-    public function useSecret(string $secret)
+    public function useSecret(string $secret): self
     {
         $this->secret = $secret;
 
         return $this;
     }
 
-    public function useHttpVerb(string $verb)
+    public function useHttpVerb(string $verb): self
     {
         $this->callWebhookJob->httpVerb = $verb;
 
         return $this;
     }
 
-    public function maximumTries(int $tries)
+    public function maximumTries(int $tries): self
     {
         $this->callWebhookJob->tries = $tries;
 
         return $this;
     }
 
-    public function useBackoffStrategy(string $backoffStrategyClass)
+    public function useBackoffStrategy(string $backoffStrategyClass): self
     {
         if (! is_subclass_of($backoffStrategyClass, BackoffStrategy::class)) {
             throw InvalidBackoffStrategy::doesNotExtendBackoffStrategy($backoffStrategyClass);
@@ -96,14 +111,14 @@ class WebhookCall
         return $this;
     }
 
-    public function timeoutInSeconds(int $timeoutInSeconds)
+    public function timeoutInSeconds(int $timeoutInSeconds): self
     {
         $this->callWebhookJob->requestTimeout = $timeoutInSeconds;
 
         return $this;
     }
 
-    public function signUsing(string $signerClass)
+    public function signUsing(string $signerClass): self
     {
         if (! is_subclass_of($signerClass, Signer::class)) {
             throw InvalidSigner::doesImplementSigner($signerClass);
@@ -114,35 +129,42 @@ class WebhookCall
         return $this;
     }
 
-    public function withHeaders(array $headers)
+    public function doNotSign(): self
+    {
+        $this->signWebhook = false;
+
+        return $this;
+    }
+
+    public function withHeaders(array $headers): self
     {
         $this->headers = $headers;
 
         return $this;
     }
 
-    public function verifySsl(bool $verifySsl = true)
+    public function verifySsl(bool $verifySsl = true): self
     {
         $this->callWebhookJob->verifySsl = $verifySsl;
 
         return $this;
     }
 
-    public function doNotVerifySsl()
+    public function doNotVerifySsl(): self
     {
         $this->verifySsl(false);
 
         return $this;
     }
 
-    public function meta(array $meta)
+    public function meta(array $meta): self
     {
         $this->callWebhookJob->meta = $meta;
 
         return $this;
     }
 
-    public function withTags(array $tags)
+    public function withTags(array $tags): self
     {
         $this->callWebhookJob->tags = $tags;
 
@@ -151,22 +173,38 @@ class WebhookCall
 
     public function dispatch(): void
     {
+        $this->prepareForDispatch();
+
+        dispatch($this->callWebhookJob);
+    }
+
+    public function dispatchNow(): void
+    {
+        $this->prepareForDispatch();
+
+        dispatch_now($this->callWebhookJob);
+    }
+
+    protected function prepareForDispatch(): void
+    {
         if (! $this->callWebhookJob->webhookUrl) {
             throw CouldNotCallWebhook::urlNotSet();
         }
 
-        if (empty($this->secret)) {
+        if ($this->signWebhook && empty($this->secret)) {
             throw CouldNotCallWebhook::secretNotSet();
         }
 
         $this->callWebhookJob->headers = $this->getAllHeaders();
-
-        dispatch($this->callWebhookJob);
     }
 
     protected function getAllHeaders(): array
     {
         $headers = $this->headers;
+
+        if (! $this->signWebhook) {
+            return $headers;
+        }
 
         $signature = $this->signer->calculateSignature($this->payload, $this->secret);
 
